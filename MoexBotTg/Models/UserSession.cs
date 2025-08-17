@@ -1,4 +1,4 @@
-﻿namespace MoexWatchlistsBot.Session;
+﻿namespace MoexWatchlistsBot.Models;
 
 public class UserSession
 {

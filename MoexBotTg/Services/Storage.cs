@@ -14,7 +14,7 @@ public class Storage
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly Dictionary<long, AppUser> _users = new();
+    private readonly Dictionary<long, User> _users = new();
 
     public Storage(string path) => _path = Path.GetFullPath(path);
 
@@ -22,7 +22,7 @@ public class Storage
     {
         if (!File.Exists(_path)) return;
         await using var fs = File.OpenRead(_path);
-        var data = await JsonSerializer.DeserializeAsync<List<AppUser>>(fs, _jsonOptions) ?? new List<AppUser>();
+        var data = await JsonSerializer.DeserializeAsync<List<User>>(fs, _jsonOptions) ?? new List<User>();
         _users.Clear();
         foreach (var u in data) _users[u.ChatId] = u;
     }
@@ -36,11 +36,11 @@ public class Storage
         await JsonSerializer.SerializeAsync(fs, list, _jsonOptions);
     }
 
-    public AppUser GetOrCreateUser(long chatId, string? username)
+    public User GetOrCreateUser(long chatId, string? username)
     {
         if (!_users.TryGetValue(chatId, out var user))
         {
-            user = new AppUser { ChatId = chatId, Username = username };
+            user = new User { ChatId = chatId, Username = username };
             _users[chatId] = user;
         }
         else
@@ -52,5 +52,18 @@ public class Storage
         return user;
     }
 
-    public AppUser? TryGetUser(long chatId) => _users.TryGetValue(chatId, out var user) ? user : null;
+    public User? TryGetUser(long chatId) => _users.TryGetValue(chatId, out var user) ? user : null;
+
+    public bool DeleteWatchlist(long chatId, string listName)
+    {
+        if (!_users.TryGetValue(chatId, out var user))
+            return false;
+
+        var list = user.Lists.FirstOrDefault(w => w.Name == listName);
+        if (list == null || list.Name == "MyFavorites")
+            return false;
+
+        user.Lists.Remove(list);
+        return true;
+    }
 }

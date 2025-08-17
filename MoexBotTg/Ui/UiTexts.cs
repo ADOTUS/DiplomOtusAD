@@ -1,4 +1,4 @@
-﻿namespace MoexWatchlistsBot.Startup;
+﻿namespace MoexWatchlistsBot.Ui;
 
 public static class UiTexts
 {
