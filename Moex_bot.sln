@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36221.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MoexWatchlistsBot", "ConsoleApp1\MoexWatchlistsBot.csproj", "{898A7068-0793-462C-A3D0-0518BA0C3498}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{898A7068-0793-462C-A3D0-0518BA0C3498}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{898A7068-0793-462C-A3D0-0518BA0C3498}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{898A7068-0793-462C-A3D0-0518BA0C3498}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{898A7068-0793-462C-A3D0-0518BA0C3498}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D59827ED-ADD1-43E3-9441-8E8C8BCD7339}
+	EndGlobalSection
+EndGlobal
