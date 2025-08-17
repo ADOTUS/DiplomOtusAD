@@ -29,7 +29,7 @@ public class Program
         await _storage.LoadAsync();
 
         // Инициализация Telegram Bot
-        var token = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN") ?? "YOUR_BOT_TOKEN_HERE";
+        var token = Environment.GetEnvironmentVariable("TG_MOEX_TOKEN") ?? "YOUR_BOT_TOKEN_HERE";
         if (string.IsNullOrWhiteSpace(token) || token == "YOUR_BOT_TOKEN_HERE")
         {
             Console.WriteLine("⚠️ Set TELEGRAM_BOT_TOKEN environment variable or edit token in code.");
