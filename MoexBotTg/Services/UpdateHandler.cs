@@ -1,4 +1,5 @@
 ﻿using MoexWatchlistsBot.Models;
+using MoexWatchlistsBot.Scenarios;
 using MoexWatchlistsBot.Ui;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -10,12 +11,28 @@ public class UpdateHandler
 {
     private readonly ITelegramBotClient _bot;
     private readonly Storage _storage;
-    private readonly Dictionary<long, UserSession> _sessions = new();
 
-    public UpdateHandler(ITelegramBotClient bot, Storage storage)
+    private readonly Dictionary<long, UserSession> _sessions = new();
+    private readonly Dictionary<string, IScenario> _scenariosByName;
+    private readonly Dictionary<long, ScenarioContext> _scenarioContexts = new();
+
+    public UpdateHandler(ITelegramBotClient bot, Storage storage, IEnumerable<IScenario> scenarios)
     {
         _bot = bot;
         _storage = storage;
+        _scenariosByName = scenarios.ToDictionary(s => s.Name);
+    }
+    private async Task StartScenarioAsync(string name, long chatId, Models.User user, CancellationToken ct)
+    {
+        if (!_scenariosByName.TryGetValue(name, out var scenario))
+        {
+            await _bot.SendMessage(chatId, "⚠️ Сценарий не найден.", cancellationToken: ct);
+            return;
+        }
+
+        var ctx = new ScenarioContext { Name = name };
+        _scenarioContexts[chatId] = ctx;
+        await scenario.StartAsync(_bot, chatId, user, ct);
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
@@ -29,11 +46,31 @@ public class UpdateHandler
             var chatId = msg.Chat.Id;
             var text = msg.Text ?? "";
 
+           
+
+            if (_scenarioContexts.TryGetValue(chatId, out var ctx) && _scenariosByName.TryGetValue(ctx.Name, out var activeScenario))
+            {
+                Console.WriteLine("debug");
+                await activeScenario.HandleMessageAsync(_bot, msg, ctx, _storage, ct);
+
+                if (ctx.IsCompleted)
+                    _scenarioContexts.Remove(chatId);
+
+                return;
+            }
+
             if (!_sessions.ContainsKey(chatId))
                 _sessions[chatId] = new UserSession();
 
             var session = _sessions[chatId];
             var user = _storage.TryGetUser(chatId);
+
+            // Обработка команд /start
+            if (text.StartsWith("/start", StringComparison.OrdinalIgnoreCase))
+            {
+                await OnStartCommand(msg, ct);
+                return;
+            }
 
             if (user is null)
             {
@@ -43,14 +80,7 @@ public class UpdateHandler
                     cancellationToken: ct);
                 return;
             }
-
-            // Обработка команд /start
-            if (text.StartsWith("/start", StringComparison.OrdinalIgnoreCase))
-            {
-                await OnStartCommand(msg, ct);
-                return;
-            }
-
+            
             // Главные кнопки главного меню
             if (text == "🔍 Поиск бумаги")
             {
@@ -70,35 +100,16 @@ public class UpdateHandler
                 return;
             }
 
-            // Если пользователь добавляет новый список
-            if (session.PendingAction == PendingAction.WaitingListName)
-            {
-                var listName = text.Trim();
-                if (string.IsNullOrWhiteSpace(listName))
-                {
-                    await bot.SendMessage(chatId, "❗ Название списка не может быть пустым. Введите другое или /cancel", cancellationToken: ct);
-                    return;
-                }
-
-                if (user.Lists.Any(l => string.Equals(l.Name, listName, StringComparison.OrdinalIgnoreCase)))
-                {
-                    await bot.SendMessage(chatId, "⚠️ Список с таким именем уже существует.", cancellationToken: ct);
-                    return;
-                }
-
-                user.Lists.Add(new WatchList { Name = listName });
-                await _storage.SaveAsync();
-
-                session.PendingAction = PendingAction.None;
-                await bot.SendMessage(chatId, $"✅ Список \"{listName}\" создан.", replyMarkup: Keyboards.BuildUserListsKeyboard(user), cancellationToken: ct);
-                return;
-            }
-
             // Кнопка добавления списка
             if (text == UiTexts.AddList)
             {
-                session.PendingAction = PendingAction.WaitingListName;
-                await bot.SendMessage(chatId, "📝 Введите название нового списка:", cancellationToken: ct);
+                await StartScenarioAsync("AddList", chatId, user, ct);
+                return;
+            }
+
+            if (text == "🗑 Удалить список")
+            {
+                await StartScenarioAsync("DeleteList", chatId, user, ct);
                 return;
             }
 
@@ -107,13 +118,6 @@ public class UpdateHandler
             {
                 session.PendingAction = PendingAction.None;
                 await bot.SendMessage(chatId, "❎ Действие отменено.", cancellationToken: ct);
-                return;
-            }
-
-            // Кнопка удалить список
-            if (text == "🗑 Удалить список")
-            {
-                await HandleDeleteList(bot, user, ct);
                 return;
             }
 
@@ -134,60 +138,42 @@ public class UpdateHandler
             }
         }
     }
-    public static async Task HandleCallbackQueryAsync(
-    ITelegramBotClient bot,
-    CallbackQuery callbackQuery,
-    Storage storage,
-    CancellationToken ct)
+    public async Task HandleCallbackQueryAsync(
+        ITelegramBotClient bot,
+        CallbackQuery callbackQuery,
+        Storage storage,
+        CancellationToken ct)
     {
-        if (callbackQuery.Data == null)
+        if (callbackQuery.Message == null)
             return;
 
-        Console.WriteLine($"💬 CallbackQuery {callbackQuery.Message.Chat.Id}: {callbackQuery.Data}");
-
-        var data = callbackQuery.Data;
         var chatId = callbackQuery.Message.Chat.Id;
 
-        var user = storage.TryGetUser(chatId);
-        if (user == null) return;
-
-        if (data.StartsWith("delete_"))
+        // Если активен сценарий — отдаём ему callback
+        if (_scenarioContexts.TryGetValue(chatId, out var ctx))
         {
-            var listName = data.Substring("delete_".Length);
+            if (ctx.Name == "DeleteList" && _scenariosByName.TryGetValue("DeleteList", out var scenario))
+            {
+                var deleteListScenario = scenario as DeleteListScenario;
+                if (deleteListScenario != null)
+                {
+                    await deleteListScenario.HandleCallbackAsync(bot, callbackQuery, _storage, ctx, ct);
 
-            var confirmKeyboard = new InlineKeyboardMarkup(new[]
-            {
-            new[]
-            {
-                InlineKeyboardButton.WithCallbackData("✅ Да", $"confirmdel_{listName}"),
-                InlineKeyboardButton.WithCallbackData("❌ Нет", "cancel_delete")
+                    if (ctx.IsCompleted)
+                        _scenarioContexts.Remove(chatId);
+
+                    return;
+                }
             }
-        });
 
-            await bot.SendMessage(
-                chatId,
-                $"Вы уверены, что хотите удалить список \"{listName}\"?",
-                replyMarkup: confirmKeyboard,
-                cancellationToken: ct
-            );
         }
-        else if (data.StartsWith("confirmdel_"))
-        {
-            var listName = data.Substring("confirmdel_".Length);
 
-            if (storage.DeleteWatchlist(chatId, listName))
-            {
-                await storage.SaveAsync();
-                await bot.SendMessage(chatId, $"Список \"{listName}\" удалён.", cancellationToken: ct);
-            }
-            else
-            {
-                await bot.SendMessage(chatId, "Ошибка: список не найден или его нельзя удалить.", cancellationToken: ct);
-            }
-        }
-        else if (data == "cancel_delete")
+        // Глобальные callback’и (если есть)
+        var data = callbackQuery.Data ?? string.Empty;
+        if (data.StartsWith("open_"))
         {
-            await bot.SendMessage(chatId, "Удаление отменено.", cancellationToken: ct);
+            var listName = data.Substring("open_".Length);
+            await _bot.SendMessage(chatId, $"📂 Открыт список: {listName}", cancellationToken: ct);
         }
     }
     private async Task OnStartCommand(Message msg, CancellationToken ct)
@@ -222,60 +208,12 @@ public class UpdateHandler
         }
     }
 
-    //private async Task ShowLists(long chatId, CancellationToken ct)
-    //{
-    //    var user = _storage.TryGetUser(chatId);
-    //    if (user is null)
-    //    {
-    //        await _bot.SendMessage(
-    //            chatId,
-    //            "ℹ️ Вы ещё не зарегистрированы. Нажмите /start",
-    //            cancellationToken: ct);
-    //        return;
-    //    }
-
-    //    var listsText = user.Lists.Count == 0
-    //        ? "(пока нет списков)"
-    //        : string.Join("\n", user.Lists.Select(l => $"• {l.Name}"));
-
-    //    await _bot.SendMessage(
-    //        chatId,
-    //        $"📋 Ваши списки:\n{listsText}",
-    //        replyMarkup: Keyboards.BuildUserListsKeyboard(user), // отдельная клавиатура для списков
-    //        cancellationToken: ct);
-    //}
-
     public Task HandleErrorAsync(ITelegramBotClient bot, Exception ex, CancellationToken ct)
     {
         Console.WriteLine($"❌ Update error: {ex.Message}\n{ex}");
         return Task.CompletedTask;
     }
 
-    private static async Task HandleDeleteList(ITelegramBotClient bot, MoexWatchlistsBot.Models.User user, CancellationToken ct)
-    {
-        var lists = user.Lists.Where(w => w.Name != "MyFavorites").ToList();
-
-        if (lists.Count == 0)
-        {
-            await bot.SendMessage(user.ChatId, "У вас нет списков для удаления.", cancellationToken: ct);
-            return;
-        }
-
-        // Строим вертикальное меню
-        var buttons = lists.Select(w => new[]
-        {
-        InlineKeyboardButton.WithCallbackData($"🗑 {w.Name}", $"delete_{w.Name}")
-    }).ToArray();
-
-        var keyboard = new InlineKeyboardMarkup(buttons);
-
-        await bot.SendMessage(
-            user.ChatId,
-            "Выберите список для удаления:",
-            replyMarkup: keyboard,
-            cancellationToken: ct
-        );
-    }
     private async Task SendProgramInfo(long chatId, CancellationToken ct)
     {
         string info = "📝 MoexWatchlistsBot\nВерсия: 1.0\nАвтор: Anton\n\nС помощью бота вы можете создавать и управлять списками бумаг на MOEX.";

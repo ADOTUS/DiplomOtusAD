@@ -1,7 +1,8 @@
-﻿using Telegram.Bot;
+﻿using MoexWatchlistsBot.Scenarios;
+using MoexWatchlistsBot.Services;
+using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types.Enums;
-using MoexWatchlistsBot.Services;
 
 namespace MoexWatchlistsBot;
 
@@ -26,9 +27,13 @@ public class Program
 
         var bot = new TelegramBotClient(token);
         var me = await bot.GetMe();
-        Console.WriteLine($"🤖 Bot @{me.Username} is starting...");
+        var scenarios = new List<IScenario>
+        {
+            new AddListScenario(),
+            new DeleteListScenario()
+        };
 
-        var handler = new UpdateHandler(bot, storage);
+        var handler = new UpdateHandler(bot, storage, scenarios);
 
         var receiverOptions = new ReceiverOptions { AllowedUpdates = Array.Empty<UpdateType>() };
 
@@ -38,7 +43,7 @@ public class Program
                 if (update.Type == UpdateType.CallbackQuery && update.CallbackQuery != null)
                 {
                     Console.WriteLine($"💬 CallbackQuery from chat {update.CallbackQuery.Message.Chat.Id}: {update.CallbackQuery.Data}");
-                    await UpdateHandler.HandleCallbackQueryAsync(botClient, update.CallbackQuery, storage, ct);
+                    await handler.HandleCallbackQueryAsync(botClient, update.CallbackQuery, storage, ct);
                 }
                 else
                 {
@@ -48,7 +53,7 @@ public class Program
             handler.HandleErrorAsync,
             receiverOptions,
             _cts.Token
-                            );
+        );
 
         Console.WriteLine("✅ Bot is running. Press Ctrl+C to exit.");
         AppDomain.CurrentDomain.ProcessExit += (_, __) => _cts.Cancel();

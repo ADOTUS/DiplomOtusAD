@@ -21,8 +21,7 @@ public static class Keyboards
         };
     }
 
-    // Старая клавиатура со списками
-    public static ReplyKeyboardMarkup BuildUserListsKeyboard(MoexWatchlistsBot.Models.User user)
+    public static ReplyKeyboardMarkup BuildUserListsKeyboard(User user)
     {
         var rows = new List<KeyboardButton[]>();
 
