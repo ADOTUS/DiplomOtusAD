@@ -46,11 +46,9 @@ public class UpdateHandler
             var chatId = msg.Chat.Id;
             var text = msg.Text ?? "";
 
-           
-
-            if (_scenarioContexts.TryGetValue(chatId, out var ctx) && _scenariosByName.TryGetValue(ctx.Name, out var activeScenario))
+           if (_scenarioContexts.TryGetValue(chatId, out var ctx) && _scenariosByName.TryGetValue(ctx.Name, out var activeScenario))
             {
-                Console.WriteLine("debug");
+                Console.WriteLine(activeScenario);
                 await activeScenario.HandleMessageAsync(_bot, msg, ctx, _storage, ct);
 
                 if (ctx.IsCompleted)
@@ -80,11 +78,11 @@ public class UpdateHandler
                     cancellationToken: ct);
                 return;
             }
-            
+
             // Главные кнопки главного меню
             if (text == "🔍 Поиск бумаги")
             {
-                await bot.SendMessage(chatId, "Функция поиска пока не реализована.", cancellationToken: ct);
+                await StartScenarioAsync("FindList", chatId, user, ct);
                 return;
             }
 
@@ -133,7 +131,28 @@ public class UpdateHandler
             // Открытие конкретного списка
             if (user.Lists.Any(l => l.Name == text))
             {
-                await bot.SendMessage(chatId, $"📂 Открыт список: {text}", cancellationToken: ct);
+                var list = user.Lists.First(l => l.Name == text);
+
+                if (list.Items.Count == 0)
+                {
+                    await bot.SendMessage(chatId, $"📂 Список {list.Name} пуст.", cancellationToken: ct);
+                }
+                else
+                {
+                    var inline = new InlineKeyboardMarkup(
+                        list.Items.Select(item => new[]
+                        {
+                        InlineKeyboardButton.WithCallbackData(item.Ticker, $"show_{item.Ticker}"),
+                        InlineKeyboardButton.WithCallbackData("❌", $"del_{item.Ticker}")
+                        }).ToArray()
+                    );
+
+                    await bot.SendMessage(chatId,
+                        $"📂 Список: {list.Name}",
+                        replyMarkup: inline,
+                        cancellationToken: ct);
+                }
+
                 return;
             }
         }
@@ -150,22 +169,26 @@ public class UpdateHandler
         var chatId = callbackQuery.Message.Chat.Id;
 
         // Если активен сценарий — отдаём ему callback
-        if (_scenarioContexts.TryGetValue(chatId, out var ctx))
+        if (_scenarioContexts.TryGetValue(chatId, out var ctx) && _scenariosByName.TryGetValue(ctx.Name, out var activeScenario))
         {
-            if (ctx.Name == "DeleteList" && _scenariosByName.TryGetValue("DeleteList", out var scenario))
+            if (activeScenario is DeleteListScenario deleteListScenario)
             {
-                var deleteListScenario = scenario as DeleteListScenario;
-                if (deleteListScenario != null)
-                {
-                    await deleteListScenario.HandleCallbackAsync(bot, callbackQuery, _storage, ctx, ct);
+                await deleteListScenario.HandleCallbackAsync(bot, callbackQuery, _storage, ctx, ct);
 
-                    if (ctx.IsCompleted)
-                        _scenarioContexts.Remove(chatId);
+                if (ctx.IsCompleted)
+                    _scenarioContexts.Remove(chatId);
 
-                    return;
-                }
+                return;
             }
+            if (activeScenario is FindListScenario findListScenario)
+            {
+                await findListScenario.HandleCallbackAsync(bot, callbackQuery, ctx, _storage,  ct);
 
+                if (ctx.IsCompleted)
+                    _scenarioContexts.Remove(chatId);
+
+                return;
+            }
         }
 
         // Глобальные callback’и (если есть)
@@ -188,7 +211,7 @@ public class UpdateHandler
 
             // Создаем список MyFavorites, если его нет
             if (!user.Lists.Any(l => l.Name.Equals("MyFavorites", StringComparison.OrdinalIgnoreCase)))
-                user.Lists.Add(new WatchList { Name = "MyFavorites" });
+                user.Lists.Add(new BrokerList { Name = "MyFavorites" });
 
             await _storage.SaveAsync();
 

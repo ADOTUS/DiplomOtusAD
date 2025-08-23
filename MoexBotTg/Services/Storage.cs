@@ -60,7 +60,7 @@ public class Storage
             return false;
 
         var list = user.Lists.FirstOrDefault(w => w.Name == listName);
-        if (list == null || list.Name == "MyFavorites")
+        if (list == null || list.IsDefault)
             return false;
 
         user.Lists.Remove(list);

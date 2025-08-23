@@ -17,24 +17,19 @@ namespace MoexWatchlistsBot.Scenarios
 
         public async Task StartAsync(ITelegramBotClient bot, long chatId, Models.User user, CancellationToken ct)
         {
-            var deletable = user.Lists
-                .Where(l => !string.Equals(l.Name, "MyFavorites", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (deletable.Count == 0)
+            var lists = user.Lists.Where(l => !l.IsDefault).ToList();
+            if (lists.Count == 0)
             {
-                await bot.SendMessage(
-                    chatId,
-                    "У вас нет списков для удаления.",
+                await bot.SendMessage(chatId,
+                    "📭 У вас нет списков для удаления.",
                     replyMarkup: Keyboards.BuildUserListsKeyboard(user),
-                    cancellationToken: ct
-                );
+                    cancellationToken: ct);
                 return;
             }
 
             // Inline-кнопки со списками для удаления
             var inline = new InlineKeyboardMarkup(
-                deletable.Select(l => new[]
+                lists.Select(l => new[]
                 {
                     InlineKeyboardButton.WithCallbackData($"🗑 {l.Name}", $"delete_{l.Name}")
                 }).ToArray()
@@ -75,7 +70,7 @@ namespace MoexWatchlistsBot.Scenarios
         {
             var chatId = message.Chat.Id;
             var text = message.Text?.Trim() ?? string.Empty;
-            var user = storage.GetOrCreateUser(chatId, message.From?.Username);
+            var user = storage.TryGetUser(chatId);
 
             // Нажали "Отменить" (reply-кнопка)
             if (text == "❌ Отменить")
@@ -88,48 +83,23 @@ namespace MoexWatchlistsBot.Scenarios
                 );
 
                 context.IsCompleted = true;
-                return;
+                //return;
             }
 
-            // Разрешаем вводить название списка текстом
-            var deletable = user.Lists
-                .Where(l => !string.Equals(l.Name, "MyFavorites", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            var target = deletable.FirstOrDefault(l => string.Equals(l.Name, text, StringComparison.OrdinalIgnoreCase));
-            if (target != null)
-            {
-                var confirmKeyboard = new InlineKeyboardMarkup(new[]
-                {
-                    new []
-                    {
-                        InlineKeyboardButton.WithCallbackData("✅ Да", $"confirmdel_{target.Name}"),
-                        InlineKeyboardButton.WithCallbackData("❌ Нет", "cancel_delete")
-                    }
-                });
-
-                await bot.SendMessage(
-                    chatId,
-                    $"Вы уверены, что хотите удалить список \"{target.Name}\"?",
-                    replyMarkup: confirmKeyboard,
-                    cancellationToken: ct
-                );
-            }
         }
 
         public async Task HandleCallbackAsync(
             ITelegramBotClient bot,
-            CallbackQuery callbackQuery,
+            CallbackQuery query,
             Storage storage,
-            ScenarioContext context,
+            ScenarioContext ctx,
             CancellationToken ct)
         {
-            if (callbackQuery.Data == null || callbackQuery.Message == null)
-                return;
 
-            var chatId = callbackQuery.Message.Chat.Id;
-            var user = storage.GetOrCreateUser(chatId, callbackQuery.From?.Username);
-            var data = callbackQuery.Data;
+            var chatId = query.Message.Chat.Id;
+            var user = storage.TryGetUser(chatId);
+            var data = query.Data ?? "";
+            if (user == null) return;
 
             if (data.StartsWith("delete_"))
             {
@@ -153,7 +123,7 @@ namespace MoexWatchlistsBot.Scenarios
                 return;
             }
 
-            if (data.StartsWith("confirmdel_"))
+            else if (data.StartsWith("confirmdel_"))
             {
                 var listName = data.Substring("confirmdel_".Length);
 
@@ -168,31 +138,19 @@ namespace MoexWatchlistsBot.Scenarios
                         cancellationToken: ct
                     );
 
-                    context.IsCompleted = true;
+                    ctx.IsCompleted = true;
                 }
-                else
-                {
-                    await bot.SendMessage(
-                        chatId,
-                        "Ошибка: список не найден или его нельзя удалить.",
-                        cancellationToken: ct
-                    );
-                }
-
-                return;
             }
-
-            if (data == "cancel_delete")
+            else if (data == "cancel_delete")
             {
-                await bot.SendMessage(
-                    chatId,
+                await bot.SendMessage(chatId,
                     "❎ Удаление отменено.",
                     replyMarkup: Keyboards.BuildUserListsKeyboard(user),
-                    cancellationToken: ct
-                );
+                    cancellationToken: ct);
 
-                context.IsCompleted = true;
+                ctx.IsCompleted = true;
             }
+
         }
     }
 }

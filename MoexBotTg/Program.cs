@@ -27,10 +27,12 @@ public class Program
 
         var bot = new TelegramBotClient(token);
         var me = await bot.GetMe();
+        var service = new MoexService();
         var scenarios = new List<IScenario>
         {
             new AddListScenario(),
-            new DeleteListScenario()
+            new DeleteListScenario(),
+            new FindListScenario()
         };
 
         var handler = new UpdateHandler(bot, storage, scenarios);
