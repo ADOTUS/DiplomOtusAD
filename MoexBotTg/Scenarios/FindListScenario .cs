@@ -19,6 +19,10 @@ namespace MoexWatchlistsBot.Scenarios
         private string? _board;
         private string? _lastTicker; // последний найденный тикер
 
+        // Черновик для добавления тикера
+        private TickerItem? _draftItem;
+        private string? _targetList;
+
         public async Task StartAsync(ITelegramBotClient bot, long chatId, Models.User user, CancellationToken ct)
         {
             var cancelKb = new ReplyKeyboardMarkup(new[]
@@ -62,6 +66,41 @@ namespace MoexWatchlistsBot.Scenarios
                     replyMarkup: Keyboards.BuildMainMenuKeyboard(),
                     cancellationToken: ct);
                 context.IsCompleted = true;
+                return;
+            }
+
+            // Если ждём количество (BuyAmount)
+            if (_draftItem != null && _draftItem.BuyAmount == null && _targetList != null)
+            {
+                if (!int.TryParse(text, out var amount) || amount < 0)
+                {
+                    await bot.SendMessage(chatId, "❗ Введите корректное количество (целое число ≥ 0)", cancellationToken: ct);
+                    return;
+                }
+
+                if (amount == 0)
+                {
+                    _draftItem.BuyAmount = 0;
+                    await FinalizeAddAsync(bot, storage, chatId, context, ct);
+                    return;
+                }
+
+                _draftItem.BuyAmount = amount;
+                await bot.SendMessage(chatId, "✍️ Введите цену BuyRate (> 0):", cancellationToken: ct);
+                return;
+            }
+
+            // Если ждём цену (BuyRate)
+            if (_draftItem != null && _draftItem.BuyAmount > 0 && _draftItem.BuyRate == null && _targetList != null)
+            {
+                if (!decimal.TryParse(text, out var rate) || rate <= 0)
+                {
+                    await bot.SendMessage(chatId, "❗ Введите корректную цену (> 0)", cancellationToken: ct);
+                    return;
+                }
+
+                _draftItem.BuyRate = rate;
+                await FinalizeAddAsync(bot, storage, chatId, context, ct);
                 return;
             }
 
@@ -171,7 +210,7 @@ namespace MoexWatchlistsBot.Scenarios
 
             if (data.StartsWith("addtolist_"))
             {
-                var listName = data.Substring("addtolist_".Length);
+                _targetList = data.Substring("addtolist_".Length);
                 var user = storage.TryGetUser(chatId);
 
                 if (user == null)
@@ -180,15 +219,14 @@ namespace MoexWatchlistsBot.Scenarios
                     return;
                 }
 
-                var list = user.Lists.FirstOrDefault(l => l.Name == listName);
+                var list = user.Lists.FirstOrDefault(l => l.Name == _targetList);
                 if (list == null)
                 {
-                    await bot.SendMessage(chatId, $"⚠️ Список {listName} не найден.", cancellationToken: ct);
+                    await bot.SendMessage(chatId, $"⚠️ Список {_targetList} не найден.", cancellationToken: ct);
                     return;
                 }
 
-                // создаём тикер
-                var item = new TickerItem
+                _draftItem = new TickerItem
                 {
                     Ticker = _lastTicker!,
                     Engine = _engine!,
@@ -196,17 +234,32 @@ namespace MoexWatchlistsBot.Scenarios
                     Board = _board!
                 };
 
-                list.Items.Add(item);
-                await storage.SaveAsync();
 
-                await bot.SendMessage(chatId,
-                    $"✅ Бумага {_lastTicker} добавлена в список {list.Name}.",
-                    replyMarkup: Keyboards.BuildMainMenuKeyboard(),
-                    cancellationToken: ct);
-
-                context.IsCompleted = true;
+                await bot.SendMessage(chatId, "✍️ Введите количество (BuyAmount ≥ 0):", cancellationToken: ct);
                 return;
+
             }
         }
+        private async Task FinalizeAddAsync(ITelegramBotClient bot, Storage storage, long chatId, ScenarioContext context, CancellationToken ct)
+        {
+            var user = storage.TryGetUser(chatId);
+            if (user == null || _draftItem == null || _targetList == null) return;
+
+            var list = user.Lists.FirstOrDefault(l => l.Name == _targetList);
+            if (list == null) return;
+
+            list.Items.Add(_draftItem);
+            await storage.SaveAsync();
+
+            await bot.SendMessage(chatId,
+                $"✅ Бумага {_draftItem.Ticker} добавлена в список {list.Name}.",
+                replyMarkup: Keyboards.BuildMainMenuKeyboard(),
+                cancellationToken: ct);
+
+            context.IsCompleted = true;
+            _draftItem = null;
+            _targetList = null;
+        }
+    
     }
 }
