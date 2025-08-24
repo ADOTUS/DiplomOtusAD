@@ -17,7 +17,7 @@ public class Storage
     private readonly Dictionary<long, User> _users = new();
 
     public Storage(string path) => _path = Path.GetFullPath(path);
-
+    public IEnumerable<User> GetAllUsers() => _users.Values;
     public async Task LoadAsync()
     {
         if (!File.Exists(_path)) return;

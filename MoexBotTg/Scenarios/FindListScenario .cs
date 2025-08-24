@@ -138,7 +138,7 @@ namespace MoexWatchlistsBot.Scenarios
                 }
             });
 
-            await bot.SendMessage(chatId, "Что дальше?", replyMarkup: actionsKb, cancellationToken: ct);
+            await bot.SendMessage(chatId, "Добавить в  список?", replyMarkup: actionsKb, cancellationToken: ct);
         }
 
         public async Task HandleCallbackAsync(

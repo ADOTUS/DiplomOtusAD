@@ -11,16 +11,18 @@ public class UpdateHandler
 {
     private readonly ITelegramBotClient _bot;
     private readonly Storage _storage;
+    private readonly NotificationBackgroundService _notificationService; 
 
     private readonly Dictionary<long, UserSession> _sessions = new();
     private readonly Dictionary<string, IScenario> _scenariosByName;
     private readonly Dictionary<long, ScenarioContext> _scenarioContexts = new();
 
-    public UpdateHandler(ITelegramBotClient bot, Storage storage, IEnumerable<IScenario> scenarios)
+    public UpdateHandler(ITelegramBotClient bot, Storage storage, IEnumerable<IScenario> scenarios, NotificationBackgroundService notificationService)
     {
         _bot = bot;
         _storage = storage;
         _scenariosByName = scenarios.ToDictionary(s => s.Name);
+        _notificationService = notificationService;
     }
     private async Task StartScenarioAsync(string name, long chatId, Models.User user, CancellationToken ct)
     {
@@ -139,13 +141,24 @@ public class UpdateHandler
                 }
                 else
                 {
-                    var inline = new InlineKeyboardMarkup(
-                        list.Items.Select(item => new[]
+                    var service = new MoexService();
+                    var buttons = new List<InlineKeyboardButton[]>();
+
+                    foreach (var item in list.Items)
+                    {
+                        var (price, _) = await service.GetLastPriceAsync(item.Ticker, item.Engine, item.Market, item.Board);
+                        var buttonText = price > 0
+                            ? $"{item.Ticker} ({price})"
+                            : item.Ticker;
+
+                        buttons.Add(new[]
                         {
-                        InlineKeyboardButton.WithCallbackData(item.Ticker, $"show_{item.Ticker}"),
-                        InlineKeyboardButton.WithCallbackData("❌", $"del_{item.Ticker}")
-                        }).ToArray()
-                    );
+                            InlineKeyboardButton.WithCallbackData(buttonText, $"show_{item.Ticker}"),
+                            InlineKeyboardButton.WithCallbackData("❌", $"del_{item.Ticker}")
+                        });
+                    }
+
+                    var inline = new InlineKeyboardMarkup(buttons);
 
                     await bot.SendMessage(chatId,
                         $"📂 Список: {list.Name}",
@@ -191,7 +204,7 @@ public class UpdateHandler
             }
         }
 
-        // Глобальные callback’и (если есть)
+        // Глобальные колбэжки
         var data = callbackQuery.Data ?? string.Empty;
 
         // Показ информации о тикере
@@ -202,51 +215,17 @@ public class UpdateHandler
             var user = _storage.TryGetUser(chatId);
             if (user == null) return;
 
-            // ищем тикер во всех списках
             var item = user.Lists
                 .SelectMany(l => l.Items)
                 .FirstOrDefault(i => i.Ticker == ticker);
 
             if (item == null)
             {
-                await bot.SendMessage(chatId, $"❌ Бумага {ticker} не найдена в ваших списках.", cancellationToken: ct);
+                await bot.SendMessage(chatId, $"❌ Бумага {ticker} не найдена в ваших списках.");
                 return;
             }
 
-            var service = new MoexService();
-            var sec = await service.GetSecurityByTickerAsync(item.Ticker, item.Engine, item.Market, item.Board);
-            var (price, time) = await service.GetLastPriceAsync(item.Ticker, item.Engine, item.Market, item.Board);
-
-            if (sec == null)
-            {
-                await bot.SendMessage(chatId, $"❌ Бумага {ticker} не найдена на MOEX.", cancellationToken: ct);
-                return;
-            }
-
-            if (item.BuyAmount.HasValue && item.BuyAmount.Value > 0)
-            {
-                var currentValue = item.BuyAmount.Value * price;
-                var currentPnl   = (item.BuyAmount.Value * price) - (item.BuyAmount.Value * item.BuyRate.Value);
-
-                await bot.SendMessage(chatId,
-                    $"📈 {sec.SecId} ({sec.ShortName})\n" +
-                    $"Цена: {price}\n" +
-                    $"Время: {time}\n" +
-                    $"В позиции штук: {item.BuyAmount}\n" +
-                    $"Цена покупки: {item.BuyRate?.ToString() ?? "—"}\n" +
-                    $"Текущая рыночная стоимость: {currentValue}\n" +
-                    $"Примерный PNL: {currentPnl}\n",
-                    cancellationToken: ct);
-            }
-            else
-            {
-                await bot.SendMessage(chatId,
-                    $"📈 {sec.SecId} ({sec.ShortName})\n" +
-                    $"Цена: {price}\n" +
-                    $"Время: {time}",
-                    cancellationToken: ct);
-            }
-
+            await _notificationService.SendTickerInfoAsync(chatId, item);
             return;
         }
 

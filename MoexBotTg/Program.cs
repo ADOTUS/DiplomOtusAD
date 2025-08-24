@@ -17,7 +17,6 @@ public class Program
         // Загружаем данные
         var storage = new Storage("data.json");
         await storage.LoadAsync();
-
         // Токен
         var token = Environment.GetEnvironmentVariable("TG_MOEX_TOKEN") ?? "YOUR_BOT_TOKEN_HERE";
         if (string.IsNullOrWhiteSpace(token) || token == "YOUR_BOT_TOKEN_HERE")
@@ -35,7 +34,11 @@ public class Program
             new FindListScenario()
         };
 
-        var handler = new UpdateHandler(bot, storage, scenarios);
+
+        var notificationService = new NotificationBackgroundService(bot, storage, _cts.Token);
+        notificationService.Start();
+
+        var handler = new UpdateHandler(bot, storage, scenarios, notificationService);
 
         var receiverOptions = new ReceiverOptions { AllowedUpdates = Array.Empty<UpdateType>() };
 

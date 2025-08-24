@@ -38,6 +38,7 @@ public class MoexService : IMoexService
             $"https://iss.moex.com/iss/engines/{engine}/markets/{market}/boards/{board}/securities/{ticker}.json" +
             "?iss.only=securities&iss.meta=off&securities.columns=SECID,SHORTNAME,TYPE,GROUP";
 
+        //https://iss.moex.com/iss/engines/futures/markets/forts/boards/SPBFUT/securities/USDRUBF.json
         return await TryReadSingleSecurity(url);
     }
 
