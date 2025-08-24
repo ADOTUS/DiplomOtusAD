@@ -193,6 +193,88 @@ public class UpdateHandler
 
         // Глобальные callback’и (если есть)
         var data = callbackQuery.Data ?? string.Empty;
+
+        // Показ информации о тикере
+        if (data.StartsWith("show_"))
+        {
+            var ticker = data.Substring("show_".Length);
+
+            var user = _storage.TryGetUser(chatId);
+            if (user == null) return;
+
+            // ищем тикер во всех списках
+            var item = user.Lists
+                .SelectMany(l => l.Items)
+                .FirstOrDefault(i => i.Ticker == ticker);
+
+            if (item == null)
+            {
+                await bot.SendMessage(chatId, $"❌ Бумага {ticker} не найдена в ваших списках.", cancellationToken: ct);
+                return;
+            }
+
+            var service = new MoexService();
+            var sec = await service.GetSecurityByTickerAsync(item.Ticker, item.Engine, item.Market, item.Board);
+            var (price, time) = await service.GetLastPriceAsync(item.Ticker, item.Engine, item.Market, item.Board);
+
+            if (sec == null)
+            {
+                await bot.SendMessage(chatId, $"❌ Бумага {ticker} не найдена на MOEX.", cancellationToken: ct);
+                return;
+            }
+
+            if (item.BuyAmount.HasValue && item.BuyAmount.Value > 0)
+            {
+                var currentValue = item.BuyAmount.Value * price;
+                var currentPnl   = (item.BuyAmount.Value * price) - (item.BuyAmount.Value * item.BuyRate.Value);
+
+                await bot.SendMessage(chatId,
+                    $"📈 {sec.SecId} ({sec.ShortName})\n" +
+                    $"Цена: {price}\n" +
+                    $"Время: {time}\n" +
+                    $"В позиции штук: {item.BuyAmount}\n" +
+                    $"Цена покупки: {item.BuyRate?.ToString() ?? "—"}\n" +
+                    $"Текущая рыночная стоимость: {currentValue}\n" +
+                    $"Примерный PNL: {currentPnl}\n",
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await bot.SendMessage(chatId,
+                    $"📈 {sec.SecId} ({sec.ShortName})\n" +
+                    $"Цена: {price}\n" +
+                    $"Время: {time}",
+                    cancellationToken: ct);
+            }
+
+            return;
+        }
+
+        // Удаление тикера
+        if (data.StartsWith("del_"))
+        {
+            var ticker = data.Substring("del_".Length);
+
+            var user = _storage.TryGetUser(chatId);
+            if (user == null) return;
+
+            foreach (var list in user.Lists)
+            {
+                var item = list.Items.FirstOrDefault(i => i.Ticker == ticker);
+                if (item != null)
+                {
+                    list.Items.Remove(item);
+                    await _storage.SaveAsync();
+
+                    await bot.SendMessage(chatId, $"❎ Бумага {ticker} удалена из списка {list.Name}.", cancellationToken: ct);
+                    return;
+                }
+            }
+
+            await bot.SendMessage(chatId, $"⚠️ Бумага {ticker} не найдена.", cancellationToken: ct);
+            return;
+        }
+
         if (data.StartsWith("open_"))
         {
             var listName = data.Substring("open_".Length);
