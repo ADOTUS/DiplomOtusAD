@@ -10,9 +10,9 @@ using Telegram.Bot.Types.ReplyMarkups;
 
 namespace MoexWatchlistsBot.Scenarios
 {
-    public class FindListScenario : IScenario
+    public class FindSecScenario : IScenario
     {
-        public string Name => "FindList";
+        public string Name => "FindSec";
 
         private string? _engine;
         private string? _market;
@@ -47,6 +47,13 @@ namespace MoexWatchlistsBot.Scenarios
                 "Выберите тип рынка:",
                 replyMarkup: inline,
                 cancellationToken: ct);
+
+            await bot.SendMessage(
+                    chatId,
+                    "Для отмены нажмите кнопку ниже:",
+                    replyMarkup: cancelKb,
+                    cancellationToken: ct
+                );
         }
 
         public async Task HandleMessageAsync(

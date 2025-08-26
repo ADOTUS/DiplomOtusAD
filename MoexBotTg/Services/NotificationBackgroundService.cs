@@ -50,7 +50,7 @@ namespace MoexWatchlistsBot.Services
                     {
                         Console.WriteLine($"[Notification Error] {ex.Message}");
                     }
-                    Console.WriteLine($"Debug {DateTime.Now}");
+                    Console.WriteLine($"Degug:Try to find tikers in timeLists in {DateTime.Now}");
                     await Task.Delay(TimeSpan.FromMinutes(1), _ct);
                 }
             }, _ct);

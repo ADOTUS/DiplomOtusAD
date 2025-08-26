@@ -84,7 +84,7 @@ public class UpdateHandler
             // Главные кнопки главного меню
             if (text == "🔍 Поиск бумаги")
             {
-                await StartScenarioAsync("FindList", chatId, user, ct);
+                await StartScenarioAsync("FindSec", chatId, user, ct);
                 return;
             }
 
@@ -193,9 +193,9 @@ public class UpdateHandler
 
                 return;
             }
-            if (activeScenario is FindListScenario findListScenario)
+            if (activeScenario is FindSecScenario findSecScenario)
             {
-                await findListScenario.HandleCallbackAsync(bot, callbackQuery, ctx, _storage,  ct);
+                await findSecScenario.HandleCallbackAsync(bot, callbackQuery, ctx, _storage,  ct);
 
                 if (ctx.IsCompleted)
                     _scenarioContexts.Remove(chatId);

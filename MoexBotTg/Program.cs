@@ -31,7 +31,7 @@ public class Program
         {
             new AddListScenario(),
             new DeleteListScenario(),
-            new FindListScenario()
+            new FindSecScenario()
         };
 
 
