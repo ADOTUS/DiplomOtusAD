@@ -14,8 +14,8 @@ namespace MoexWatchlistsBot.Scenarios
             ITelegramBotClient bot,
             long chatId,
             Models.User user,
+            ScenarioContext context,
             CancellationToken ct);
-
         Task HandleMessageAsync(
             ITelegramBotClient bot,
             Message message,

@@ -14,7 +14,7 @@ namespace MoexWatchlistsBot.Scenarios
 
         private static readonly Regex TimeRegex = new(@"^([01]?\d|2[0-3]):[0-5]\d$", RegexOptions.Compiled);
 
-        public async Task StartAsync(ITelegramBotClient bot, long chatId, Models.User user, CancellationToken ct)
+        public async Task StartAsync(ITelegramBotClient bot, long chatId, Models.User user, ScenarioContext context, CancellationToken ct)
         {
             var cancelKb = new ReplyKeyboardMarkup(new[]
             {

@@ -1,6 +1,7 @@
 ﻿using MoexWatchlistsBot.Models;
 using MoexWatchlistsBot.Scenarios;
 using MoexWatchlistsBot.Ui;
+using System.Collections.Generic;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -34,7 +35,8 @@ public class UpdateHandler
 
         var ctx = new ScenarioContext { Name = name };
         _scenarioContexts[chatId] = ctx;
-        await scenario.StartAsync(_bot, chatId, user, ct);
+
+        await scenario.StartAsync(_bot, chatId, user, ctx, ct);
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
@@ -154,6 +156,7 @@ public class UpdateHandler
                         buttons.Add(new[]
                         {
                             InlineKeyboardButton.WithCallbackData(buttonText, $"show_{item.Ticker}"),
+                            InlineKeyboardButton.WithCallbackData("📊", $"anal_{item.Ticker}"),
                             InlineKeyboardButton.WithCallbackData("❌", $"del_{item.Ticker}")
                         });
                     }
@@ -184,18 +187,28 @@ public class UpdateHandler
         // Если активен сценарий — отдаём ему callback
         if (_scenarioContexts.TryGetValue(chatId, out var ctx) && _scenariosByName.TryGetValue(ctx.Name, out var activeScenario))
         {
-            if (activeScenario is DeleteListScenario deleteListScenario)
-            {
-                await deleteListScenario.HandleCallbackAsync(bot, callbackQuery, _storage, ctx, ct);
+            Console.WriteLine("мы тут");
+            //if (activeScenario is DeleteListScenario deleteListScenario)
+            //{
+            //    await deleteListScenario.HandleCallbackAsync(bot, callbackQuery, _storage, ctx, ct);
 
-                if (ctx.IsCompleted)
-                    _scenarioContexts.Remove(chatId);
+            //    if (ctx.IsCompleted)
+            //        _scenarioContexts.Remove(chatId);
 
-                return;
-            }
-            if (activeScenario is FindSecScenario findSecScenario)
+            //    return;
+            //}
+            //if (activeScenario is FindSecScenario findSecScenario)
+            //{
+            //    await findSecScenario.HandleCallbackAsync(bot, callbackQuery, ctx, _storage,  ct);
+
+            //    if (ctx.IsCompleted)
+            //        _scenarioContexts.Remove(chatId);
+
+            //    return;
+            //}
+            if (activeScenario is IScenarioWithCallback scenarioWithCallback)
             {
-                await findSecScenario.HandleCallbackAsync(bot, callbackQuery, ctx, _storage,  ct);
+                await scenarioWithCallback.HandleCallbackAsync(bot, callbackQuery, ctx, _storage, ct);
 
                 if (ctx.IsCompleted)
                     _scenarioContexts.Remove(chatId);
@@ -253,12 +266,67 @@ public class UpdateHandler
             await bot.SendMessage(chatId, $"⚠️ Бумага {ticker} не найдена.", cancellationToken: ct);
             return;
         }
-
-        if (data.StartsWith("open_"))
+        if (data.StartsWith("anal_"))
         {
-            var listName = data.Substring("open_".Length);
-            await _bot.SendMessage(chatId, $"📂 Открыт список: {listName}", cancellationToken: ct);
+            var ticker = data.Substring("anal_".Length);
+            var user = _storage.TryGetUser(chatId);
+
+            var item = user?.Lists.SelectMany(l => l.Items).FirstOrDefault(i => i.Ticker == ticker);
+            if (item == null)
+            {
+                await bot.SendMessage(chatId, "❌ Бумага не найдена.", cancellationToken: ct);
+                return;
+            }
+
+            var cotx = new ScenarioContext { Name = "Analytics" };
+            cotx.Data["Ticker"] = item.Ticker;
+            cotx.Data["Engine"] = item.Engine;
+            cotx.Data["Market"] = item.Market;
+            cotx.Data["Board"] = item.Board;
+
+            _scenarioContexts[chatId] = cotx;
+
+            await _scenariosByName["Analytics"].StartAsync(bot, chatId, user, cotx, ct);
+            return;
         }
+        //if (data.StartsWith("anal_"))
+        //{
+        //    var ticker = data.Substring("anal_".Length);
+        //    var user = _storage.TryGetUser(chatId);
+
+
+        //    await bot.SendMessage(chatId, "Анализ невозможен, возникла некая ошибка 🀄️", cancellationToken: ct);
+
+        //    var service = new MoexService();
+
+        //    foreach (var list in user.Lists)
+        //    {
+        //        var item = list.Items.FirstOrDefault(i => i.Ticker == ticker);
+        //        if (item != null)
+        //        {
+
+        //            var report = await service.GetCandleAnalyticsAsync(ticker
+        //                , item.Engine
+        //                , item.Market
+        //                , 24, DateTime.UtcNow.AddDays(-7), DateTime.UtcNow);
+
+        //            var msg = $"Анализ {report.SecId} за {report.PeriodDescription}:\n" +
+        //                $"- Текущее закрытие: {report.CurrentClose}\n" +
+        //                $"- Изменение за день: {report.ChangeDay:F2}%\n" +
+        //                $"- Изменение за период: {report.ChangePeriod:F2}%\n" +
+        //                $"- Диапазон: {report.Min} – {report.Max}\n" +
+        //                $"- Общий объём: {report.TotalVolume:N0}";
+
+        //            await bot.SendMessage(chatId, msg, cancellationToken: ct);
+
+        //            return;
+        //        }
+        //    }
+
+        //    await bot.SendMessage(chatId, "Анализ невозможен, возникла некая ошибка 🀄️", cancellationToken: ct);
+        //    return;
+
+        //}
     }
     private async Task OnStartCommand(Message msg, CancellationToken ct)
     {

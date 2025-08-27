@@ -128,4 +128,76 @@ public class MoexService : IMoexService
             Boards = new List<string> { }
         };
     }
+    public async Task<List<Candle>> GetCandlesAsync(
+    string secId, string engine, string market,
+    int interval, DateTime from, DateTime till)
+    {
+        var url = $"https://iss.moex.com/iss/engines/{engine}/markets/{market}/securities/{secId}/candles.json" +
+                  $"?interval={interval}&from={from:yyyy-MM-dd}&till={till:yyyy-MM-dd}";
+        Console.WriteLine(url);
+        var resp = await _http.GetAsync(url);
+        if (!resp.IsSuccessStatusCode) return new List<Candle>();
+
+        var json = await resp.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+
+        if (!doc.RootElement.TryGetProperty("candles", out var candlesBlock))
+            return new List<Candle>();
+
+        var cols = candlesBlock.GetProperty("columns");
+        var data = candlesBlock.GetProperty("data");
+
+        int iBegin = Col(cols, "begin");
+        int iEnd = Col(cols, "end");
+        int iOpen = Col(cols, "open");
+        int iClose = Col(cols, "close");
+        int iHigh = Col(cols, "high");
+        int iLow = Col(cols, "low");
+        int iVol = Col(cols, "volume");
+
+        var list = new List<Candle>();
+        foreach (var row in data.EnumerateArray())
+        {
+            list.Add(new Candle
+            {
+                Begin = iBegin >= 0 ? DateTime.Parse(row[iBegin].GetString()!) : DateTime.MinValue,
+                End = iEnd >= 0 ? DateTime.Parse(row[iEnd].GetString()!) : DateTime.MinValue,
+                Open = iOpen >= 0 ? row[iOpen].GetDecimal() : 0,
+                Close = iClose >= 0 ? row[iClose].GetDecimal() : 0,
+                High = iHigh >= 0 ? row[iHigh].GetDecimal() : 0,
+                Low = iLow >= 0 ? row[iLow].GetDecimal() : 0,
+                Volume = iVol >= 0 ? row[iVol].GetDecimal() : 0
+            });
+        }
+
+        return list;
+    }
+    public async Task<CandleAnalytics?> GetCandleAnalyticsAsync(
+    string secId, string engine, string market,
+    int interval, DateTime from, DateTime till)
+    {
+        var candles = await GetCandlesAsync(secId, engine, market, interval, from, till);
+        if (candles.Count == 0) return null;
+
+        var last = candles.Last();
+        var first = candles.First();
+
+        decimal? changeDay = candles.Count > 1
+            ? (last.Close - candles[^2].Close) / candles[^2].Close * 100
+            : null;
+
+        decimal? changePeriod = (last.Close - first.Open) / first.Open * 100;
+
+        return new CandleAnalytics
+        {
+            SecId = secId,
+            PeriodDescription = $"{from:dd.MM.yyyy} – {till:dd.MM.yyyy}",
+            CurrentClose = last.Close,
+            ChangeDay = changeDay,
+            ChangePeriod = changePeriod,
+            Min = candles.Min(c => c.Low),
+            Max = candles.Max(c => c.High),
+            TotalVolume = candles.Sum(c => c.Volume)
+        };
+    }
 }

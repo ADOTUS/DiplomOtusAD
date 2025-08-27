@@ -10,7 +10,7 @@ using Telegram.Bot.Types.ReplyMarkups;
 
 namespace MoexWatchlistsBot.Scenarios
 {
-    public class FindSecScenario : IScenario
+    public class FindSecScenario : IScenario, IScenarioWithCallback
     {
         public string Name => "FindSec";
 
@@ -23,7 +23,7 @@ namespace MoexWatchlistsBot.Scenarios
         private TickerItem? _draftItem;
         private string? _targetList;
 
-        public async Task StartAsync(ITelegramBotClient bot, long chatId, Models.User user, CancellationToken ct)
+        public async Task StartAsync(ITelegramBotClient bot, long chatId, Models.User user, ScenarioContext context, CancellationToken ct)
         {
             var cancelKb = new ReplyKeyboardMarkup(new[]
             {
@@ -38,8 +38,8 @@ namespace MoexWatchlistsBot.Scenarios
                 new []
                 {
                     InlineKeyboardButton.WithCallbackData("📈 TQBR", "find_TQBR"),
-                    InlineKeyboardButton.WithCallbackData("💱 CETS", "find_CETS"),
-                    InlineKeyboardButton.WithCallbackData("📊 SPBFUT", "find_SPBFUT")
+                    InlineKeyboardButton.WithCallbackData("🤑 CETS", "find_CETS"),
+                    InlineKeyboardButton.WithCallbackData("🎰 SPBFUT", "find_SPBFUT")
                 }
             });
 

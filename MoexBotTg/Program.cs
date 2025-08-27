@@ -31,9 +31,18 @@ public class Program
         {
             new AddListScenario(),
             new DeleteListScenario(),
-            new FindSecScenario()
+            new FindSecScenario(),
+            new AnalyticsScenario()
         };
 
+        var report = await service.GetCandleAnalyticsAsync("SBER", "stock", "shares", 24, DateTime.UtcNow.AddDays(-7), DateTime.UtcNow);
+
+        Console.WriteLine($"Анализ {report.SecId} за {report.PeriodDescription}:\n" +
+                          $"- Текущее закрытие: {report.CurrentClose}\n" +
+                          $"- Изменение за день: {report.ChangeDay:F2}%\n" +
+                          $"- Изменение за период: {report.ChangePeriod:F2}%\n" +
+                          $"- Диапазон: {report.Min} – {report.Max}\n" +
+                          $"- Общий объём: {report.TotalVolume:N0}");
 
         var notificationService = new NotificationBackgroundService(bot, storage, _cts.Token);
         notificationService.Start();

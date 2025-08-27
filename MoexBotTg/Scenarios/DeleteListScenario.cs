@@ -11,11 +11,11 @@ using Telegram.Bot.Types.ReplyMarkups;
 
 namespace MoexWatchlistsBot.Scenarios
 {
-    public class DeleteListScenario : IScenario
+    public class DeleteListScenario : IScenario, IScenarioWithCallback
     {
         public string Name => "DeleteList";
 
-        public async Task StartAsync(ITelegramBotClient bot, long chatId, Models.User user, CancellationToken ct)
+        public async Task StartAsync(ITelegramBotClient bot, long chatId, Models.User user, ScenarioContext context, CancellationToken ct)
         {
             var lists = user.Lists.Where(l => !l.IsDefault).ToList();
             if (lists.Count == 0)
@@ -86,13 +86,13 @@ namespace MoexWatchlistsBot.Scenarios
                 //return;
             }
 
-        }
+        } 
 
         public async Task HandleCallbackAsync(
             ITelegramBotClient bot,
             CallbackQuery query,
-            Storage storage,
             ScenarioContext ctx,
+            Storage storage,
             CancellationToken ct)
         {
 
