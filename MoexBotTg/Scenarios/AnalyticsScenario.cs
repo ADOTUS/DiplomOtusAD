@@ -23,11 +23,19 @@ namespace MoexWatchlistsBot.Scenarios
             ScenarioContext context,
             CancellationToken ct)
         {
-            // Начинаем с шага 0 — ждём дату начала
             context.Step = 0;
+
+            var cancelKb = new ReplyKeyboardMarkup(new[]
+            {
+                new KeyboardButton[] { "❌ Отменить" }
+            })
+            {
+                ResizeKeyboard = true
+            };
 
             await bot.SendMessage(chatId,
                 "📅 Введите дату начала периода (ГГГГ-ММ-ДД):",
+                            replyMarkup: cancelKb,
                 cancellationToken: ct);
         }
 
@@ -41,13 +49,31 @@ namespace MoexWatchlistsBot.Scenarios
             var chatId = message.Chat.Id;
             var text = message.Text?.Trim() ?? "";
 
+            var cancelKb = new ReplyKeyboardMarkup(new[]
+            {
+                new KeyboardButton[] { "❌ Отменить" }
+            })
+            {
+                ResizeKeyboard = true
+            };
+
+            if (text == "❌ Отменить")
+            {
+                await bot.SendMessage(chatId,
+                    "❎ Аналитика отменена.",
+                    replyMarkup: Keyboards.BuildMainMenuKeyboard(),
+                    cancellationToken: ct);
+
+                context.IsCompleted = true;
+                return;
+            }
             if (context.Step == 0)
             {
+                
+
                 if (!DateTime.TryParse(text, out var startDate))
                 {
-                    await bot.SendMessage(chatId,
-                        "❌ Неверный формат даты. Введите снова (ГГГГ-ММ-ДД):",
-                        cancellationToken: ct);
+                    await bot.SendMessage(chatId,"❌ Неверный формат даты. Введите снова (ГГГГ-ММ-ДД):",cancellationToken: ct);
                     return;
                 }
 
@@ -56,6 +82,7 @@ namespace MoexWatchlistsBot.Scenarios
 
                 await bot.SendMessage(chatId,
                     "📅 Теперь введите дату конца периода (ГГГГ-ММ-ДД):",
+                    replyMarkup: cancelKb,
                     cancellationToken: ct);
 
                 return;
@@ -65,9 +92,7 @@ namespace MoexWatchlistsBot.Scenarios
             {
                 if (!DateTime.TryParse(text, out var endDate))
                 {
-                    await bot.SendMessage(chatId,
-                        "❌ Неверный формат даты. Введите снова (ГГГГ-ММ-ДД):",
-                        cancellationToken: ct);
+                    await bot.SendMessage(chatId, "❌ Неверный формат даты. Введите снова (ГГГГ-ММ-ДД):", cancellationToken: ct);
                     return;
                 }
 
@@ -93,7 +118,10 @@ namespace MoexWatchlistsBot.Scenarios
                 if (daysDiff >= 31)
                 {
                     buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("1 месяц", "interval_31") });
+
                 }
+
+                buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("❌ Отменить", "cancel") });
 
                 var kb = new InlineKeyboardMarkup(buttons);
 
@@ -116,7 +144,17 @@ namespace MoexWatchlistsBot.Scenarios
             var chatId = callbackQuery.Message.Chat.Id;
             var data = callbackQuery.Data ?? "";
 
-            Console.WriteLine($"{context.Step} мы тут");
+
+            if (data.Contains("cancel"))
+            {
+                await bot.SendMessage(chatId,
+                   "❎ Аналитика отменена.",
+                   replyMarkup: Keyboards.BuildMainMenuKeyboard(),
+                   cancellationToken: ct);
+
+                context.IsCompleted = true;
+                return;
+            }
 
             if (context.Step == 2 && data.StartsWith("interval_"))
             {
@@ -131,10 +169,9 @@ namespace MoexWatchlistsBot.Scenarios
 
                 context.Data["interval"] = intervalStr;
 
-                Console.WriteLine("Debug contex.data потом удалить");
                 foreach (var kvp in context.Data)
                 {
-                    Console.WriteLine($"{kvp.Key} = {kvp.Value}");
+                    Console.WriteLine($"Debug contex.data потом удалить {kvp.Key} = {kvp.Value}");
                 }
 
                 var startDate = DateTime.Parse(context.Data["startDate"]);
@@ -152,12 +189,14 @@ namespace MoexWatchlistsBot.Scenarios
 
                 var msg = $"📊 Анализ {reportmsg.SecId} за {reportmsg.PeriodDescription} за интервал {interval}:\n" +
                           $"- Текущее закрытие: {reportmsg.CurrentClose}\n" +
-                          $"- Рост/падение за последнюю свечу: {reportmsg.ChangeDay:F2}%\n" +
+                          $"-Пик объёма: {reportmsg.PeakVolume:N0} :с {reportmsg.PeakVolumeBegin} по {reportmsg.PeakVolumeEnd} \n" +
+                          $"- Рост/падение за последнюю свечу: {reportmsg.ChangeMaxVolumeCandle:F2}%\n" +
                           $"- Общий рост/падение за весь период: {reportmsg.ChangePeriod:F2}%\n" +
                           $"- Диапазон: {reportmsg.Min} – {reportmsg.Max}\n" +
                           $"- Общий объём: {reportmsg.TotalVolume:N0}";
 
-                await bot.SendMessage(chatId, msg, cancellationToken: ct);
+                await bot.SendMessage(chatId, msg,
+                   replyMarkup: Keyboards.BuildMainMenuKeyboard(), cancellationToken: ct);
 
                 context.IsCompleted = true;
             }

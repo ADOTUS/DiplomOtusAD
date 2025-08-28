@@ -182,18 +182,23 @@ public class MoexService : IMoexService
         var last = candles.Last();
         var first = candles.First();
 
-        decimal? changeDay = candles.Count > 1
-            ? (last.Close - candles[^2].Close) / candles[^2].Close * 100
-            : null;
-
         decimal? changePeriod = (last.Close - first.Open) / first.Open * 100;
+
+        var peakVolumeCandle = candles.OrderByDescending(c => c.Volume).First();
+        
+        decimal? changeMaxVolumeCandle = peakVolumeCandle.Open != 0
+            ? (peakVolumeCandle.Close - peakVolumeCandle.Open) / peakVolumeCandle.Open * 100
+            : null;
 
         return new CandleAnalytics
         {
             SecId = secId,
             PeriodDescription = $"{from:dd.MM.yyyy} – {till:dd.MM.yyyy}",
             CurrentClose = last.Close,
-            ChangeDay = changeDay,
+            PeakVolume = peakVolumeCandle.Volume,
+            PeakVolumeBegin = peakVolumeCandle.Begin,
+            PeakVolumeEnd = peakVolumeCandle.End,
+            ChangeMaxVolumeCandle = changeMaxVolumeCandle,
             ChangePeriod = changePeriod,
             Min = candles.Min(c => c.Low),
             Max = candles.Max(c => c.High),

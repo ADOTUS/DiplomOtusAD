@@ -14,10 +14,9 @@ public class Program
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-        // Загружаем данные
         var storage = new Storage("data.json");
         await storage.LoadAsync();
-        // Токен
+
         var token = Environment.GetEnvironmentVariable("TG_MOEX_TOKEN") ?? "YOUR_BOT_TOKEN_HERE";
         if (string.IsNullOrWhiteSpace(token) || token == "YOUR_BOT_TOKEN_HERE")
         {
@@ -34,15 +33,6 @@ public class Program
             new FindSecScenario(),
             new AnalyticsScenario()
         };
-
-        var report = await service.GetCandleAnalyticsAsync("SBER", "stock", "shares", 24, DateTime.UtcNow.AddDays(-7), DateTime.UtcNow);
-
-        Console.WriteLine($"Анализ {report.SecId} за {report.PeriodDescription}:\n" +
-                          $"- Текущее закрытие: {report.CurrentClose}\n" +
-                          $"- Изменение за день: {report.ChangeDay:F2}%\n" +
-                          $"- Изменение за период: {report.ChangePeriod:F2}%\n" +
-                          $"- Диапазон: {report.Min} – {report.Max}\n" +
-                          $"- Общий объём: {report.TotalVolume:N0}");
 
         var notificationService = new NotificationBackgroundService(bot, storage, _cts.Token);
         notificationService.Start();

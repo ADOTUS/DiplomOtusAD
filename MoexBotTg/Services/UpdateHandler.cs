@@ -103,7 +103,8 @@ public class UpdateHandler
             }
 
             // Кнопка добавления списка
-            if (text == UiTexts.AddList)
+            //if (text == UiTexts.AddList)
+            if (text == "➕ Добавить список нотификации")
             {
                 await StartScenarioAsync("AddList", chatId, user, ct);
                 return;

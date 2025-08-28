@@ -27,7 +27,6 @@ namespace MoexWatchlistsBot.Scenarios
                 return;
             }
 
-            // Inline-кнопки со списками для удаления
             var inline = new InlineKeyboardMarkup(
                 lists.Select(l => new[]
                 {
@@ -35,7 +34,6 @@ namespace MoexWatchlistsBot.Scenarios
                 }).ToArray()
             );
 
-            // Reply-клавиатура с единственной кнопкой "Отменить"
             var cancelKb = new ReplyKeyboardMarkup(new[]
             {
                 new KeyboardButton[] { "❌ Отменить" }
@@ -45,7 +43,6 @@ namespace MoexWatchlistsBot.Scenarios
                 OneTimeKeyboard = false
             };
 
-            // Отправляем списки + выводим снизу клавиатуру отмены
             await bot.SendMessage(
                 chatId,
                 "Выберите список для удаления (или отмените):",
@@ -71,8 +68,7 @@ namespace MoexWatchlistsBot.Scenarios
             var chatId = message.Chat.Id;
             var text = message.Text?.Trim() ?? string.Empty;
             var user = storage.TryGetUser(chatId);
-
-            // Нажали "Отменить" (reply-кнопка)
+            
             if (text == "❌ Отменить")
             {
                 await bot.SendMessage(
@@ -83,7 +79,7 @@ namespace MoexWatchlistsBot.Scenarios
                 );
 
                 context.IsCompleted = true;
-                //return;
+                return;
             }
 
         } 
