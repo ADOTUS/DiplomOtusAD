@@ -2,13 +2,13 @@
 using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types;
-using MoexWatchlistsBot.Services; // для Storage
+using MoexWatchlistsBot.Services;
 
 namespace MoexWatchlistsBot.Scenarios
 {
     public interface IScenario
     {
-        string Name { get; }   // например "AddList"
+        string Name { get; } 
 
         Task StartAsync(
             ITelegramBotClient bot,

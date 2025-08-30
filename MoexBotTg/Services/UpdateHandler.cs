@@ -1,7 +1,6 @@
 ﻿using MoexWatchlistsBot.Models;
 using MoexWatchlistsBot.Scenarios;
 using MoexWatchlistsBot.Ui;
-using System.Collections.Generic;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -14,16 +13,22 @@ public class UpdateHandler
     private readonly Storage _storage;
     private readonly NotificationBackgroundService _notificationService; 
 
-    private readonly Dictionary<long, UserSession> _sessions = new();
     private readonly Dictionary<string, IScenario> _scenariosByName;
     private readonly Dictionary<long, ScenarioContext> _scenarioContexts = new();
 
-    public UpdateHandler(ITelegramBotClient bot, Storage storage, IEnumerable<IScenario> scenarios, NotificationBackgroundService notificationService)
+    private readonly UserRepository? _userRepo;
+
+    public UpdateHandler(ITelegramBotClient bot
+        , Storage storage
+        , IEnumerable<IScenario> scenarios
+        , NotificationBackgroundService notificationService
+        , UserRepository? userRepo = null)
     {
         _bot = bot;
         _storage = storage;
         _scenariosByName = scenarios.ToDictionary(s => s.Name);
         _notificationService = notificationService;
+        _userRepo = userRepo;
     }
     private async Task StartScenarioAsync(string name, long chatId, Models.User user, CancellationToken ct)
     {
@@ -45,6 +50,18 @@ public class UpdateHandler
             update.Type != Telegram.Bot.Types.Enums.UpdateType.CallbackQuery)
             return;
 
+        if (_userRepo != null && update.Message is { } msgUser)
+        {
+            var from = msgUser.From;
+            if (from != null)
+            {
+                await _userRepo.UpsertUserAsync(
+                    msgUser.Chat.Id,
+                    from.Username,
+                    ct);
+            }
+        }
+
         if (update.Message is { } msg)
         {
             var chatId = msg.Chat.Id;
@@ -61,13 +78,8 @@ public class UpdateHandler
                 return;
             }
 
-            if (!_sessions.ContainsKey(chatId))
-                _sessions[chatId] = new UserSession();
-
-            var session = _sessions[chatId];
             var user = _storage.TryGetUser(chatId);
 
-            // Обработка команд /start
             if (text.StartsWith("/start", StringComparison.OrdinalIgnoreCase))
             {
                 await OnStartCommand(msg, ct);
@@ -83,7 +95,6 @@ public class UpdateHandler
                 return;
             }
 
-            // Главные кнопки главного меню
             if (text == "🔍 Поиск бумаги")
             {
                 await StartScenarioAsync("FindSec", chatId, user, ct);
@@ -102,8 +113,6 @@ public class UpdateHandler
                 return;
             }
 
-            // Кнопка добавления списка
-            //if (text == UiTexts.AddList)
             if (text == "➕ Добавить список нотификации")
             {
                 await StartScenarioAsync("AddList", chatId, user, ct);
@@ -116,14 +125,6 @@ public class UpdateHandler
                 return;
             }
 
-            // Кнопка отмены действия
-            if (text.Equals("/cancel", StringComparison.OrdinalIgnoreCase))
-            {
-                session.PendingAction = PendingAction.None;
-                await bot.SendMessage(chatId, "❎ Действие отменено.", cancellationToken: ct);
-                return;
-            }
-
             if (text == "Вернуться")
             {
                 await _bot.SendMessage(
@@ -133,7 +134,7 @@ public class UpdateHandler
                     cancellationToken: ct);
                 return;
             }
-            // Открытие конкретного списка
+
             if (user.Lists.Any(l => l.Name == text))
             {
                 var list = user.Lists.First(l => l.Name == text);
@@ -157,7 +158,7 @@ public class UpdateHandler
                         buttons.Add(new[]
                         {
                             InlineKeyboardButton.WithCallbackData(buttonText, $"show_{item.Ticker}"),
-                            InlineKeyboardButton.WithCallbackData("📊", $"anal_{item.Ticker}"),
+                            InlineKeyboardButton.WithCallbackData("📊", $"analys_{item.Ticker}"),
                             InlineKeyboardButton.WithCallbackData("❌", $"del_{item.Ticker}")
                         });
                     }
@@ -185,28 +186,18 @@ public class UpdateHandler
 
         var chatId = callbackQuery.Message.Chat.Id;
 
-        // Если активен сценарий — отдаём ему callback
         if (_scenarioContexts.TryGetValue(chatId, out var ctx) && _scenariosByName.TryGetValue(ctx.Name, out var activeScenario))
         {
             Console.WriteLine("мы тут");
-            //if (activeScenario is DeleteListScenario deleteListScenario)
-            //{
-            //    await deleteListScenario.HandleCallbackAsync(bot, callbackQuery, _storage, ctx, ct);
 
-            //    if (ctx.IsCompleted)
-            //        _scenarioContexts.Remove(chatId);
+            if (_userRepo != null && callbackQuery.From != null)
+            {
+                await _userRepo.UpsertUserAsync(
+                    callbackQuery.Message!.Chat.Id,
+                    callbackQuery.From.Username,
+                    ct);
+            }
 
-            //    return;
-            //}
-            //if (activeScenario is FindSecScenario findSecScenario)
-            //{
-            //    await findSecScenario.HandleCallbackAsync(bot, callbackQuery, ctx, _storage,  ct);
-
-            //    if (ctx.IsCompleted)
-            //        _scenarioContexts.Remove(chatId);
-
-            //    return;
-            //}
             if (activeScenario is IScenarioWithCallback scenarioWithCallback)
             {
                 await scenarioWithCallback.HandleCallbackAsync(bot, callbackQuery, ctx, _storage, ct);
@@ -218,10 +209,8 @@ public class UpdateHandler
             }
         }
 
-        // Глобальные колбэжки
         var data = callbackQuery.Data ?? string.Empty;
 
-        // Показ информации о тикере
         if (data.StartsWith("show_"))
         {
             var ticker = data.Substring("show_".Length);
@@ -243,7 +232,6 @@ public class UpdateHandler
             return;
         }
 
-        // Удаление тикера
         if (data.StartsWith("del_"))
         {
             var ticker = data.Substring("del_".Length);
@@ -267,9 +255,9 @@ public class UpdateHandler
             await bot.SendMessage(chatId, $"⚠️ Бумага {ticker} не найдена.", cancellationToken: ct);
             return;
         }
-        if (data.StartsWith("anal_"))
+        if (data.StartsWith("analys_"))
         {
-            var ticker = data.Substring("anal_".Length);
+            var ticker = data.Substring("analys_".Length);
             var user = _storage.TryGetUser(chatId);
 
             var item = user?.Lists.SelectMany(l => l.Items).FirstOrDefault(i => i.Ticker == ticker);
@@ -290,44 +278,6 @@ public class UpdateHandler
             await _scenariosByName["Analytics"].StartAsync(bot, chatId, user, cotx, ct);
             return;
         }
-        //if (data.StartsWith("anal_"))
-        //{
-        //    var ticker = data.Substring("anal_".Length);
-        //    var user = _storage.TryGetUser(chatId);
-
-
-        //    await bot.SendMessage(chatId, "Анализ невозможен, возникла некая ошибка 🀄️", cancellationToken: ct);
-
-        //    var service = new MoexService();
-
-        //    foreach (var list in user.Lists)
-        //    {
-        //        var item = list.Items.FirstOrDefault(i => i.Ticker == ticker);
-        //        if (item != null)
-        //        {
-
-        //            var report = await service.GetCandleAnalyticsAsync(ticker
-        //                , item.Engine
-        //                , item.Market
-        //                , 24, DateTime.UtcNow.AddDays(-7), DateTime.UtcNow);
-
-        //            var msg = $"Анализ {report.SecId} за {report.PeriodDescription}:\n" +
-        //                $"- Текущее закрытие: {report.CurrentClose}\n" +
-        //                $"- Изменение за день: {report.ChangeDay:F2}%\n" +
-        //                $"- Изменение за период: {report.ChangePeriod:F2}%\n" +
-        //                $"- Диапазон: {report.Min} – {report.Max}\n" +
-        //                $"- Общий объём: {report.TotalVolume:N0}";
-
-        //            await bot.SendMessage(chatId, msg, cancellationToken: ct);
-
-        //            return;
-        //        }
-        //    }
-
-        //    await bot.SendMessage(chatId, "Анализ невозможен, возникла некая ошибка 🀄️", cancellationToken: ct);
-        //    return;
-
-        //}
     }
     private async Task OnStartCommand(Message msg, CancellationToken ct)
     {
@@ -336,10 +286,8 @@ public class UpdateHandler
 
         if (user is null)
         {
-            // Создаем нового пользователя
             user = _storage.GetOrCreateUser(chatId, msg.From?.Username);
 
-            // Создаем список MyFavorites, если его нет
             if (!user.Lists.Any(l => l.Name.Equals("MyFavorites", StringComparison.OrdinalIgnoreCase)))
                 user.Lists.Add(new BrokerList { Name = "MyFavorites" });
 
@@ -348,7 +296,7 @@ public class UpdateHandler
             await _bot.SendMessage(
                 chatId,
                 "✅ Регистрация выполнена. Добро пожаловать!",
-                replyMarkup: Keyboards.BuildMainMenuKeyboard(), // Главное меню с 3 кнопками
+                replyMarkup: Keyboards.BuildMainMenuKeyboard(),
                 cancellationToken: ct);
         }
         else
@@ -356,7 +304,7 @@ public class UpdateHandler
             await _bot.SendMessage(
                 chatId,
                 $"👋 С возвращением, {user.Username ?? user.ChatId.ToString()}!",
-                replyMarkup: Keyboards.BuildMainMenuKeyboard(), // Главное меню с 3 кнопками
+                replyMarkup: Keyboards.BuildMainMenuKeyboard(),
                 cancellationToken: ct);
         }
     }
@@ -369,7 +317,13 @@ public class UpdateHandler
 
     private async Task SendProgramInfo(long chatId, CancellationToken ct)
     {
-        string info = "📝 MoexWatchlistsBot\nВерсия: 1.0\nАвтор: Anton\n\nС помощью бота вы можете создавать и управлять списками бумаг на MOEX.";
+        string info = "📝 MoexWatchlistsBot\nВерсия: 1.0\nАвтор: Anton D\n\nБот может получать действующие на MOEX бумаги и производить следующие действия:\n" +
+            "- Искать любую бумагу на площадках TQBR, SPBFUT, CETS и добавлять ее в свои списки\n" +
+            "- Создавать свои списки оповещений о котировках в выбранное время\n" +
+            "- Получать краткую информацию о своей позиции (параметры задаются вручную)\n" +
+            "- Получать текущие котировки в момент запроса\n" +
+            "- Производить аналитику по свечам\n" +
+            "⚠️-Это free-API. Данные имеют выдержку в 15 минут-⚠️";
         await _bot.SendMessage(chatId, info, cancellationToken: ct);
     }
 }

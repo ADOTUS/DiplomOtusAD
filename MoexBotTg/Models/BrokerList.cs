@@ -8,7 +8,7 @@ namespace MoexWatchlistsBot.Models
 {
     public class BrokerList
     {
-        public string Name { get; set; } = null!; // "MyFavorites" или "HH:mm"
+        public string Name { get; set; } = null!;
         public List<TickerItem> Items { get; set; } = new();
         public bool IsDefault => Name == "MyFavorites";
     }

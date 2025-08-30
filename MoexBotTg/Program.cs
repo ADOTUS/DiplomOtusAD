@@ -14,6 +14,29 @@ public class Program
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
+        var pgConn = Environment.GetEnvironmentVariable("PG_CONN");
+        Console.WriteLine($"PG_CONN = {pgConn ?? "null"}");
+
+        try
+        {
+            using var conn = new Npgsql.NpgsqlConnection(pgConn);
+            conn.Open();
+            Console.WriteLine("✅ Подключение успешно");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("❌ Ошибка подключения: " + ex.Message);
+        }
+
+        UserRepository? userRepo = null;
+
+        if (!string.IsNullOrWhiteSpace(pgConn))
+        {
+            userRepo = new UserRepository(pgConn);
+            Console.WriteLine("🗄  UserRepository подключен к PostgreSQL");
+        }
+
+
         var storage = new Storage("data.json");
         await storage.LoadAsync();
 
@@ -37,7 +60,7 @@ public class Program
         var notificationService = new NotificationBackgroundService(bot, storage, _cts.Token);
         notificationService.Start();
 
-        var handler = new UpdateHandler(bot, storage, scenarios, notificationService);
+        var handler = new UpdateHandler(bot, storage, scenarios, notificationService, userRepo);
 
         var receiverOptions = new ReceiverOptions { AllowedUpdates = Array.Empty<UpdateType>() };
 

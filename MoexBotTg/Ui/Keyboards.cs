@@ -32,8 +32,6 @@ public static class Keyboards
             else
                 rows.Add(new[] { new KeyboardButton(user.Lists[i].Name) });
         }
-
-        //rows.Add(new[] { new KeyboardButton(UiTexts.AddList) });
         rows.Add(new[] { new KeyboardButton("➕ Добавить список нотификации") });
         rows.Add(new[] { new KeyboardButton("🗑 Удалить список") });
         rows.Add(new[] { new KeyboardButton("Вернуться") });

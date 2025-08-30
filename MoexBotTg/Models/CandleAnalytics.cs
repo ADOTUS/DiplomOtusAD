@@ -6,7 +6,6 @@ namespace MoexWatchlistsBot.Models
         public string SecId { get; set; } = null!;
         public string PeriodDescription { get; set; } = null!;
         public decimal CurrentClose { get; set; }
-        //public decimal? ChangeDay { get; set; }
         public decimal PeakVolume { get; set; }
         public DateTime PeakVolumeBegin { get; set; }
         public DateTime PeakVolumeEnd { get; set; }

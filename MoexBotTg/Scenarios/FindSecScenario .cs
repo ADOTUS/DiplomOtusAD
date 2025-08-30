@@ -17,9 +17,8 @@ namespace MoexWatchlistsBot.Scenarios
         private string? _engine;
         private string? _market;
         private string? _board;
-        private string? _lastTicker; // последний найденный тикер
+        private string? _lastTicker;
 
-        // Черновик для добавления тикера
         private TickerItem? _draftItem;
         private string? _targetList;
 
@@ -76,7 +75,6 @@ namespace MoexWatchlistsBot.Scenarios
                 return;
             }
 
-            // Если ждём количество (BuyAmount)
             if (_draftItem != null && _draftItem.BuyAmount == null && _targetList != null)
             {
                 if (!int.TryParse(text, out var amount) || amount < 0)
@@ -97,7 +95,6 @@ namespace MoexWatchlistsBot.Scenarios
                 return;
             }
 
-            // Если ждём цену (BuyRate)
             if (_draftItem != null && _draftItem.BuyAmount > 0 && _draftItem.BuyRate == null && _targetList != null)
             {
                 if (!decimal.TryParse(text, out var rate) || rate <= 0)
@@ -117,7 +114,6 @@ namespace MoexWatchlistsBot.Scenarios
                 return;
             }
 
-            // Пользователь ввёл тикер
             var service = new MoexService();
             _lastTicker = text;
 
@@ -126,16 +122,14 @@ namespace MoexWatchlistsBot.Scenarios
 
             if (sec == null)
             {
-                await bot.SendMessage(chatId, $"❌ Бумага {text} не найдена.", cancellationToken: ct);
+                await bot.SendMessage(chatId, $"❌ Бумага {text} не найдена. Введите правильный тикер или нажмите отмена.", cancellationToken: ct);
                 return;
             }
 
-            // показываем информацию
             await bot.SendMessage(chatId,
                 $"📈 {sec.SecId} ({sec.ShortName})\nЦена: {price}\nВремя: {time}",
                 cancellationToken: ct);
 
-            // клавиатура "добавить/отменить"
             var actionsKb = new InlineKeyboardMarkup(new[]
             {
                 new []
@@ -173,7 +167,7 @@ namespace MoexWatchlistsBot.Scenarios
                         break;
                 }
 
-                await bot.SendMessage(chatId, "✍️ Введите тикер бумаги:", cancellationToken: ct);
+                await bot.SendMessage(chatId, $"Введите тикер бумаги рынка-{_board}:", cancellationToken: ct);
                 return;
             }
 
@@ -203,7 +197,6 @@ namespace MoexWatchlistsBot.Scenarios
                     return;
                 }
 
-                // показать списки
                 var inline = new InlineKeyboardMarkup(
                     user.Lists.Select(l => new[]
                     {
