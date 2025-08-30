@@ -38,13 +38,14 @@ public class MoexService : IMoexService
             $"https://iss.moex.com/iss/engines/{engine}/markets/{market}/boards/{board}/securities/{ticker}.json" +
             "?iss.only=securities&iss.meta=off&securities.columns=SECID,SHORTNAME,TYPE,GROUP";
 
-        //https://iss.moex.com/iss/engines/futures/markets/forts/boards/SPBFUT/securities/USDRUBF.json
+        Console.WriteLine($"debug sec {url}");
         return await TryReadSingleSecurity(url);
     }
 
     public async Task<(decimal? lastPrice, DateTime? lastTime)> GetLastPriceAsync(string secId, string engine, string market, string board)
     {
         var url = $"https://iss.moex.com/iss/engines/{engine}/markets/{market}/boards/{board}/securities/{secId}.json";
+        Console.WriteLine($"debug price {url}");
         var response = await _http.GetAsync(url);
 
         if (!response.IsSuccessStatusCode)
