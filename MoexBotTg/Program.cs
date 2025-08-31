@@ -2,6 +2,7 @@
 using MoexWatchlistsBot.Services;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
 namespace MoexWatchlistsBot;
@@ -12,20 +13,17 @@ public class Program
 
     public static async Task Main()
     {
-        Console.OutputEncoding = System.Text.Encoding.UTF8;
-
         var pgConn = Environment.GetEnvironmentVariable("PG_CONN");
         Console.WriteLine($"PG_CONN = {pgConn ?? "null"}");
-
         try
         {
             using var conn = new Npgsql.NpgsqlConnection(pgConn);
             conn.Open();
-            Console.WriteLine("✅ Подключение успешно");
+            Console.WriteLine("Подключено к бд");
         }
         catch (Exception ex)
         {
-            Console.WriteLine("❌ Ошибка подключения: " + ex.Message);
+            Console.WriteLine("Ошибка подключения к бд:" + ex.Message);
         }
 
         UserRepository? userRepo = null;
@@ -33,7 +31,7 @@ public class Program
         if (!string.IsNullOrWhiteSpace(pgConn))
         {
             userRepo = new UserRepository(pgConn);
-            Console.WriteLine("🗄  UserRepository подключен к PostgreSQL");
+            Console.WriteLine("UserRepository подключен к бд");
         }
 
 
@@ -56,7 +54,10 @@ public class Program
             new FindSecScenario(),
             new AnalyticsScenario()
         };
-
+        await bot.SetMyCommands(new[]
+        {
+            new BotCommand { Command = "start", Description = "Запуск бота" }
+        });
         var notificationService = new NotificationBackgroundService(bot, storage, _cts.Token);
         notificationService.Start();
 

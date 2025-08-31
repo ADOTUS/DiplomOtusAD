@@ -25,8 +25,6 @@ public class MoexService : IMoexService
         {
             Timeout = TimeSpan.FromSeconds(15)
         };
-        _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "moex-test/1.0 (+github.com/yourname)");
-        _http.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
     }
 
     public async Task<SecurityInfo?> GetSecurityByTickerAsync(string ticker, string engine, string market, string board)
@@ -106,6 +104,8 @@ public class MoexService : IMoexService
         if (!resp.IsSuccessStatusCode) return null;
 
         var json = await resp.Content.ReadAsStringAsync();
+        Console.WriteLine($"debug json \n {json}");
+
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
