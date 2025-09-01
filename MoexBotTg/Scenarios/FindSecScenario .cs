@@ -13,16 +13,18 @@ namespace MoexWatchlistsBot.Scenarios
     public class FindSecScenario : IScenario, IScenarioWithCallback
     {
         public string Name => "FindSec";
-
         private string? _engine;
         private string? _market;
         private string? _board;
         private string? _lastTicker;
-
         private TickerItem? _draftItem;
         private string? _targetList;
 
-        public async Task StartAsync(ITelegramBotClient bot, long chatId, Models.User user, ScenarioContext context, CancellationToken ct)
+        public async Task StartAsync(ITelegramBotClient bot
+            , long chatId
+            , Models.User user
+            , ScenarioContext context
+            , CancellationToken ct)
         {
             var cancelKb = new ReplyKeyboardMarkup(new[]
             {
@@ -240,7 +242,11 @@ namespace MoexWatchlistsBot.Scenarios
 
             }
         }
-        private async Task FinalizeAddAsync(ITelegramBotClient bot, Storage storage, long chatId, ScenarioContext context, CancellationToken ct)
+        private async Task FinalizeAddAsync(ITelegramBotClient bot
+            , Storage storage
+            , long chatId
+            , ScenarioContext context
+            , CancellationToken ct)
         {
             var user = storage.TryGetUser(chatId);
             if (user == null || _draftItem == null || _targetList == null) return;

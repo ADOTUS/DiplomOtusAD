@@ -14,7 +14,9 @@ namespace MoexWatchlistsBot.Services
         private readonly Storage _storage;
         private readonly CancellationToken _ct;
 
-        public NotificationBackgroundService(ITelegramBotClient bot, Storage storage, CancellationToken ct)
+        public NotificationBackgroundService(ITelegramBotClient bot
+            , Storage storage
+            , CancellationToken ct)
         {
             _bot = bot;
             _storage = storage;
@@ -56,7 +58,8 @@ namespace MoexWatchlistsBot.Services
             }, _ct);
         }
 
-        public async Task SendTickerInfoAsync(long chatId, TickerItem item)
+        public async Task SendTickerInfoAsync(long chatId
+        , TickerItem item)
         {
             var service = new MoexService();
             var sec = await service.GetSecurityByTickerAsync(item.Ticker, item.Engine, item.Market, item.Board);

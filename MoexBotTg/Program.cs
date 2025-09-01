@@ -10,7 +10,6 @@ namespace MoexWatchlistsBot;
 public class Program
 {
     private static readonly CancellationTokenSource _cts = new();
-
     public static async Task Main()
     {
         var pgConn = Environment.GetEnvironmentVariable("PG_CONN");

@@ -12,10 +12,8 @@ public class UpdateHandler
     private readonly ITelegramBotClient _bot;
     private readonly Storage _storage;
     private readonly NotificationBackgroundService _notificationService; 
-
     private readonly Dictionary<string, IScenario> _scenariosByName;
     private readonly Dictionary<long, ScenarioContext> _scenarioContexts = new();
-
     private readonly UserRepository? _userRepo;
 
     public UpdateHandler(ITelegramBotClient bot
@@ -30,7 +28,10 @@ public class UpdateHandler
         _notificationService = notificationService;
         _userRepo = userRepo;
     }
-    private async Task StartScenarioAsync(string name, long chatId, Models.User user, CancellationToken ct)
+    private async Task StartScenarioAsync(string name
+        , long chatId
+        , Models.User user
+        , CancellationToken ct)
     {
         if (!_scenariosByName.TryGetValue(name, out var scenario))
         {
@@ -44,7 +45,10 @@ public class UpdateHandler
         await scenario.StartAsync(_bot, chatId, user, ctx, ct);
     }
 
-    public async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
+    public async Task HandleUpdateAsync(
+        ITelegramBotClient bot
+        , Update update
+        , CancellationToken ct)
     {
         if (update.Type != Telegram.Bot.Types.Enums.UpdateType.Message &&
             update.Type != Telegram.Bot.Types.Enums.UpdateType.CallbackQuery)
@@ -279,7 +283,8 @@ public class UpdateHandler
             return;
         }
     }
-    private async Task OnStartCommand(Message msg, CancellationToken ct)
+    private async Task OnStartCommand(Message msg
+        , CancellationToken ct)
     {
         var chatId = msg.Chat.Id;
         var user = _storage.TryGetUser(chatId);
@@ -309,13 +314,16 @@ public class UpdateHandler
         }
     }
 
-    public Task HandleErrorAsync(ITelegramBotClient bot, Exception ex, CancellationToken ct)
+    public Task HandleErrorAsync(ITelegramBotClient bot
+        , Exception ex
+        , CancellationToken ct)
     {
-        Console.WriteLine($"❌ Update error: {ex.Message}\n{ex}");
+        Console.WriteLine($"Update error: {ex.Message}\n{ex}");
         return Task.CompletedTask;
     }
 
-    private async Task SendProgramInfo(long chatId, CancellationToken ct)
+    private async Task SendProgramInfo(long chatId
+        , CancellationToken ct)
     {
         string info = "📝 MoexWatchlistsBot\nВерсия: 1.0\nАвтор: Anton D\n\nБот может получать действующие на MOEX бумаги и производить следующие действия:\n" +
             "- Искать любую бумагу на площадках TQBR, SPBFUT, CETS и добавлять ее в свои списки\n" +

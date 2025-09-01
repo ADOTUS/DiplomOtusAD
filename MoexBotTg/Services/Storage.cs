@@ -36,7 +36,8 @@ public class Storage
         await JsonSerializer.SerializeAsync(fs, list, _jsonOptions);
     }
 
-    public User GetOrCreateUser(long chatId, string? username)
+    public User GetOrCreateUser(long chatId
+    , string? username)
     {
         if (!_users.TryGetValue(chatId, out var user))
         {
@@ -54,7 +55,8 @@ public class Storage
 
     public User? TryGetUser(long chatId) => _users.TryGetValue(chatId, out var user) ? user : null;
 
-    public bool DeleteWatchlist(long chatId, string listName)
+    public bool DeleteWatchlist(long chatId
+        , string listName)
     {
         if (!_users.TryGetValue(chatId, out var user))
             return false;

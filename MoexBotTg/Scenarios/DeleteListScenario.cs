@@ -15,7 +15,11 @@ namespace MoexWatchlistsBot.Scenarios
     {
         public string Name => "DeleteList";
 
-        public async Task StartAsync(ITelegramBotClient bot, long chatId, Models.User user, ScenarioContext context, CancellationToken ct)
+        public async Task StartAsync(ITelegramBotClient bot
+            , long chatId
+            , Models.User user
+            , ScenarioContext context
+            , CancellationToken ct)
         {
             var lists = user.Lists.Where(l => !l.IsDefault).ToList();
             if (lists.Count == 0)

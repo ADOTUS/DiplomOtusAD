@@ -27,7 +27,10 @@ public class MoexService : IMoexService
         };
     }
 
-    public async Task<SecurityInfo?> GetSecurityByTickerAsync(string ticker, string engine, string market, string board)
+    public async Task<SecurityInfo?> GetSecurityByTickerAsync(string ticker
+        , string engine
+        , string market
+        , string board)
     {
         if (string.IsNullOrWhiteSpace(ticker)) throw new ArgumentException(nameof(ticker));
         ticker = ticker.Trim().ToUpperInvariant();
@@ -40,7 +43,10 @@ public class MoexService : IMoexService
         return await TryReadSingleSecurity(url);
     }
 
-    public async Task<(decimal? lastPrice, DateTime? lastTime)> GetLastPriceAsync(string secId, string engine, string market, string board)
+    public async Task<(decimal? lastPrice, DateTime? lastTime)> GetLastPriceAsync(string secId
+        , string engine
+        , string market
+        , string board)
     {
         var url = $"https://iss.moex.com/iss/engines/{engine}/markets/{market}/boards/{board}/securities/{secId}.json";
         Console.WriteLine($"debug price {url}");
@@ -88,7 +94,8 @@ public class MoexService : IMoexService
         return (last, lastTime);
     }
 
-    private static int Col(JsonElement columns, string name)
+    private static int Col(JsonElement columns
+        , string name)
     {
         for (int i = 0; i < columns.GetArrayLength(); i++)
         {
@@ -130,8 +137,12 @@ public class MoexService : IMoexService
         };
     }
     public async Task<List<Candle>> GetCandlesAsync(
-    string secId, string engine, string market,
-    int interval, DateTime from, DateTime till)
+    string secId
+    , string engine
+    , string market
+    , int interval
+    , DateTime from
+    , DateTime till)
     {
         var url = $"https://iss.moex.com/iss/engines/{engine}/markets/{market}/securities/{secId}/candles.json" +
                   $"?interval={interval}&from={from:yyyy-MM-dd}&till={till:yyyy-MM-dd}";
@@ -174,8 +185,12 @@ public class MoexService : IMoexService
         return list;
     }
     public async Task<CandleAnalytics?> GetCandleAnalyticsAsync(
-    string secId, string engine, string market,
-    int interval, DateTime from, DateTime till)
+    string secId
+    , string engine
+    , string market
+    , int interval
+    , DateTime from
+    , DateTime till)
     {
         var candles = await GetCandlesAsync(secId, engine, market, interval, from, till);
         if (candles.Count == 0) return null;
